@@ -1,61 +1,161 @@
-
 package com.tradingbacktester.core;
 
 import com.tradingbacktester.model.Bar;
 import com.tradingbacktester.model.TimeSeries;
+import com.tradingbacktester.utils.CsvUtils;
+
+import java.io.File;
+import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Service for accessing historical market data.
+ * Loads market data from various sources such as CSV files or APIs.
  */
-public class MarketDataService {
-    private final Map<String, TimeSeries> dataCache;
-    private final MarketDataLoader dataLoader;
+public class MarketDataLoader {
+    private String dataDirectory;
+    private DateTimeFormatter dateTimeFormatter;
     
     /**
-     * Creates a new market data service.
-     * 
-     * @param dataLoader the market data loader to use
+     * Creates a new market data loader with the default data directory and date format.
      */
-    public MarketDataService(MarketDataLoader dataLoader) {
-        this.dataCache = new ConcurrentHashMap<>();
-        this.dataLoader = dataLoader;
+    public MarketDataLoader() {
+        this("./data", "yyyy-MM-dd HH:mm:ss");
     }
     
     /**
-     * Gets historical data for the specified symbol and time range.
+     * Creates a new market data loader with the specified data directory and date format.
+     * 
+     * @param dataDirectory the directory containing market data files
+     * @param dateTimeFormat the date/time format used in the data files
+     */
+    public MarketDataLoader(String dataDirectory, String dateTimeFormat) {
+        this.dataDirectory = dataDirectory;
+        this.dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimeFormat);
+    }
+    
+    /**
+     * Sets the data directory.
+     * 
+     * @param dataDirectory the directory containing market data files
+     */
+    public void setDataDirectory(String dataDirectory) {
+        this.dataDirectory = dataDirectory;
+    }
+    
+    /**
+     * Sets the date/time format.
+     * 
+     * @param dateTimeFormat the date/time format used in the data files
+     */
+    public void setDateTimeFormat(String dateTimeFormat) {
+        this.dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimeFormat);
+    }
+    
+    /**
+     * Loads market data for the specified symbol and time range.
      * 
      * @param symbol the symbol of the financial instrument
      * @param startTime the start time
      * @param endTime the end time
      * @return the time series containing the historical data
      */
-    public TimeSeries getHistoricalData(String symbol, LocalDateTime startTime, LocalDateTime endTime) {
-        // Check if data is in cache
-        TimeSeries cachedData = dataCache.get(symbol);
-        if (cachedData != null) {
-            Bar firstBar = cachedData.getFirstBar();
-            Bar lastBar = cachedData.getLastBar();
-            
-            // Check if the cached data covers the requested time range
-            if (firstBar != null && lastBar != null && 
-                !firstBar.getTimestamp().isAfter(startTime) && 
-                !lastBar.getTimestamp().isBefore(endTime)) {
-                // The cached data covers the requested time range
-                return filterTimeRange(cachedData, startTime, endTime);
-            }
+    public TimeSeries loadData(String symbol, LocalDateTime startTime, LocalDateTime endTime) {
+        // First, try to load from a CSV file
+        TimeSeries data = loadFromCsv(symbol);
+        
+        // If data is null, we could try to load from an API or other sources
+        if (data == null) {
+            throw new RuntimeException("Could not load data for symbol: " + symbol);
         }
         
-        // Load data from source
-        TimeSeries newData = dataLoader.loadData(symbol, startTime, endTime);
+        return filterTimeRange(data, startTime, endTime);
+    }
+    
+    /**
+     * Loads market data from a CSV file.
+     * 
+     * @param symbol the symbol of the financial instrument
+     * @return the time series containing the historical data, or null if not found
+     */
+    private TimeSeries loadFromCsv(String symbol) {
+        File file = new File(dataDirectory + File.separator + symbol + ".csv");
+        if (!file.exists()) {
+            return null;
+        }
         
-        // Cache the data
-        dataCache.put(symbol, newData);
-        
-        return newData;
+        try {
+            List<String[]> rows = CsvUtils.readCsv(file.getPath());
+            if (rows.isEmpty()) {
+                return null;
+            }
+            
+            // Determine the column indices (assuming the first row is the header)
+            String[] header = rows.get(0);
+            int dateTimeIdx = findColumnIndex(header, "datetime", "date", "time");
+            int openIdx = findColumnIndex(header, "open");
+            int highIdx = findColumnIndex(header, "high");
+            int lowIdx = findColumnIndex(header, "low");
+            int closeIdx = findColumnIndex(header, "close");
+            int volumeIdx = findColumnIndex(header, "volume");
+            
+            if (dateTimeIdx < 0 || openIdx < 0 || highIdx < 0 || lowIdx < 0 || closeIdx < 0) {
+                throw new IOException("Required columns not found in CSV file: " + file.getPath());
+            }
+            
+            // Create the time series
+            TimeSeries timeSeries = new TimeSeries(symbol);
+            
+            // Skip the header row
+            for (int i = 1; i < rows.size(); i++) {
+                String[] row = rows.get(i);
+                
+                if (row.length <= Math.max(dateTimeIdx, Math.max(openIdx, Math.max(highIdx, Math.max(lowIdx, closeIdx))))) {
+                    continue; // Skip incomplete rows
+                }
+                
+                try {
+                    LocalDateTime timestamp = LocalDateTime.parse(row[dateTimeIdx], dateTimeFormatter);
+                    double open = Double.parseDouble(row[openIdx]);
+                    double high = Double.parseDouble(row[highIdx]);
+                    double low = Double.parseDouble(row[lowIdx]);
+                    double close = Double.parseDouble(row[closeIdx]);
+                    long volume = volumeIdx >= 0 && volumeIdx < row.length ? 
+                                  Long.parseLong(row[volumeIdx]) : 0;
+                    
+                    Bar bar = new Bar(timestamp, open, high, low, close, volume);
+                    timeSeries.addBar(bar);
+                } catch (Exception e) {
+                    // Skip rows with parsing errors
+                    System.err.println("Error parsing row " + i + ": " + e.getMessage());
+                }
+            }
+            
+            return timeSeries;
+        } catch (IOException e) {
+            System.err.println("Error reading CSV file: " + e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Finds the index of a column in the header row.
+     * 
+     * @param header the header row
+     * @param possibleNames possible names of the column (case-insensitive)
+     * @return the index of the column, or -1 if not found
+     */
+    private int findColumnIndex(String[] header, String... possibleNames) {
+        for (String name : possibleNames) {
+            for (int i = 0; i < header.length; i++) {
+                if (header[i].trim().equalsIgnoreCase(name)) {
+                    return i;
+                }
+            }
+        }
+        return -1;
     }
     
     /**
@@ -77,21 +177,5 @@ public class MarketDataService {
         }
         
         return filteredData;
-    }
-    
-    /**
-     * Clears the data cache.
-     */
-    public void clearCache() {
-        dataCache.clear();
-    }
-    
-    /**
-     * Removes the specified symbol from the data cache.
-     * 
-     * @param symbol the symbol to remove
-     */
-    public void removeFromCache(String symbol) {
-        dataCache.remove(symbol);
     }
 }
