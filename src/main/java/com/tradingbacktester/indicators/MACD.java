@@ -65,4 +65,6 @@ public class MACD implements Indicator {
         for (int i = 0; i < macdLine.size(); i++) {
             if (i < slowPeriod + signalPeriod - 2) {
                 histogram.add(Double.NaN);
-            } else
+            } else {
+                histogram.add(macdLine.get(i) - signalLine.get(i));
+            }
