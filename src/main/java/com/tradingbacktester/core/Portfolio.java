@@ -27,12 +27,6 @@ public class BacktestEngine {
     private double commissionRate;
     private double slippageModel;
     
-    /**
-     * Creates a new backtesting engine.
-     * 
-     * @param marketDataService the market data service
-     * @param initialCapital the initial capital
-     */
     public BacktestEngine(MarketDataService marketDataService, double initialCapital) {
         this.marketDataService = marketDataService;
         this.orderExecutor = new OrderExecutionSimulator();
@@ -43,50 +37,23 @@ public class BacktestEngine {
         this.commissionRate = Constants.DEFAULT_COMMISSION_RATE;
         this.slippageModel = Constants.DEFAULT_SLIPPAGE;
     }
-    
-    /**
-     * Adds a strategy to the backtesting engine.
-     * 
-     * @param strategy the strategy to add
-     */
+
     public void addStrategy(Strategy strategy) {
         strategies.put(strategy.getName(), strategy);
     }
     
-    /**
-     * Removes a strategy from the backtesting engine.
-     * 
-     * @param strategyName the name of the strategy to remove
-     */
     public void removeStrategy(String strategyName) {
         strategies.remove(strategyName);
     }
     
-    /**
-     * Sets the commission rate.
-     * 
-     * @param commissionRate the commission rate (e.g., 0.001 for 0.1%)
-     */
     public void setCommissionRate(double commissionRate) {
         this.commissionRate = commissionRate;
     }
-    
-    /**
-     * Sets the slippage model for order execution.
-     * 
-     * @param slippage the slippage model value
-     */
+
     public void setSlippageModel(double slippage) {
         this.slippageModel = slippage;
     }
     
-    /**
-     * Runs the backtest for all added strategies over the specified time period.
-     * 
-     * @param startTime the start time of the backtest
-     * @param endTime the end time of the backtest
-     * @return a summary of the backtest results
-     */
     public Map<String, Object> runBacktest(LocalDateTime startTime, LocalDateTime endTime) {
         // Reset the portfolio and trades
         portfolio.reset(initialCapital);
@@ -164,11 +131,6 @@ public class BacktestEngine {
         return calculateResults();
     }
     
-    /**
-     * Checks for stop loss and take profit triggers.
-     * 
-     * @param currentBars the current price bars
-     */
     private void checkStopLossAndTakeProfit(Map<String, Bar> currentBars) {
         for (Position position : portfolio.getPositions()) {
             String symbol = position.getSymbol();
@@ -207,11 +169,6 @@ public class BacktestEngine {
         }
     }
     
-    /**
-     * Calculates the backtest results.
-     * 
-     * @return a map containing the results
-     */
     private Map<String, Object> calculateResults() {
         Map<String, Object> results = new HashMap<>();
         
@@ -263,11 +220,6 @@ public class BacktestEngine {
         return results;
     }
     
-    /**
-     * Calculates the maximum drawdown.
-     * 
-     * @return the maximum drawdown as a percentage
-     */
     private double calculateMaxDrawdown() {
         double maxCapital = initialCapital;
         double maxDrawdown = 0;
@@ -283,20 +235,10 @@ public class BacktestEngine {
         return maxDrawdown;
     }
     
-    /**
-     * Gets all executed trades.
-     * 
-     * @return the list of trades
-     */
     public List<Trade> getTrades() {
         return new ArrayList<>(trades);
     }
     
-    /**
-     * Gets the portfolio.
-     * 
-     * @return the portfolio
-     */
     public Portfolio getPortfolio() {
         return portfolio;
     }
