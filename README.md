@@ -47,7 +47,7 @@ The project is organized into the following main packages:
 1. Clone this repository to your local machine:
 
 ```bash
-git clone https://github.com/yourusername/trading-backtester.git
+git clone https://github.com/Tarini2005/trading-backtester.git
 cd trading-backtester
 ```
 
