@@ -11,41 +11,19 @@ import com.tradingbacktester.utils.Constants;
 public class OrderExecutionSimulator {
     private double commissionRate;
     private double slippageModel;
-    
-    /**
-     * Creates a new order execution simulator with default settings.
-     */
+
     public OrderExecutionSimulator() {
         this.commissionRate = Constants.DEFAULT_COMMISSION_RATE;
         this.slippageModel = Constants.DEFAULT_SLIPPAGE;
     }
-    
-    /**
-     * Sets the commission rate.
-     * 
-     * @param commissionRate the commission rate (e.g., 0.001 for 0.1%)
-     */
+
     public void setCommissionRate(double commissionRate) {
         this.commissionRate = commissionRate;
     }
-    
-    /**
-     * Sets the slippage model.
-     * 
-     * @param slippageModel the slippage model value
-     */
     public void setSlippageModel(double slippageModel) {
         this.slippageModel = slippageModel;
     }
     
-    /**
-     * Executes an order against the current market data.
-     * 
-     * @param order the order to execute
-     * @param bar the current price bar
-     * @param portfolio the portfolio to update
-     * @return the resulting trade if the order is executed and completes a trade, null otherwise
-     */
     public Trade executeOrder(Order order, Bar bar, Portfolio portfolio) {
         if (order == null || bar == null) {
             return null;
@@ -55,7 +33,7 @@ public class OrderExecutionSimulator {
         double executionPrice = calculateExecutionPrice(order, bar);
         
         if (executionPrice <= 0) {
-            // Order was not executed (e.g., limit order not filled)
+            // Order was not executed
             return null;
         }
         
@@ -77,13 +55,11 @@ public class OrderExecutionSimulator {
             return null; // Not enough capital or position to execute the order
         }
         
-        // Check if this completes a trade (entry and exit)
         Position position = portfolio.getPosition(order.getSymbol());
         
         // If the position is closed, create a trade record
         if (position == null || position.getQuantity() == 0) {
             // This was an exit order
-            // Find the original entry order and details
             Order entryOrder = null;
             double entryPrice = 0;
             double entryQuantity = 0;
@@ -125,20 +101,13 @@ public class OrderExecutionSimulator {
                 order
             );
         } else if (position.getOriginalOrder() == null) {
-            // This is an entry order, set it as the original order for the position
+            // This is an entry order,
             position.setOriginalOrder(order);
         }
         
         return null;
     }
     
-    /**
-     * Calculates the execution price based on order type and slippage.
-     * 
-     * @param order the order
-     * @param bar the current price bar
-     * @return the execution price, or 0 if the order is not executed
-     */
     private double calculateExecutionPrice(Order order, Bar bar) {
         double basePrice;
         
@@ -160,7 +129,6 @@ public class OrderExecutionSimulator {
                 break;
                 
             case STOP:
-                // For stop orders, check if the stop price is reached
                 if (order.isBuy() && bar.getHigh() >= order.getExecutionPrice()) {
                     basePrice = order.getExecutionPrice();
                 } else if (order.isSell() && bar.getLow() <= order.getExecutionPrice()) {
@@ -184,7 +152,7 @@ public class OrderExecutionSimulator {
                 break;
                 
             default:
-                return 0; // Unknown order type
+                return 0;
         }
         
         // Apply slippage
