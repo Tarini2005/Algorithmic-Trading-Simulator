@@ -1,5 +1,3 @@
-# Algorithmic-Trading-Simulator
-
 # Trading Strategy Backtester
 
 A comprehensive Java-based platform for backtesting trading strategies on historical market data. This tool allows traders and developers to test and optimize trading algorithms with accurate modeling of market mechanics and trading costs.
