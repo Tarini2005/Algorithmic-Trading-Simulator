@@ -45,8 +45,8 @@ The project is organized into the following main packages:
 1. Clone this repository to your local machine:
 
 ```bash
-git clone https://github.com/Tarini2005/trading-backtester.git
-cd trading-backtester
+git clone https://github.com/Tarini2005/Algorithmic-Trading-Simulator.git
+cd Algorithmic-Trading-Simulator
 ```
 
 2. Build the project using Maven:
